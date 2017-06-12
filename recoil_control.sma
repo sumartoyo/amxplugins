@@ -15,6 +15,7 @@
 #define MAX_PLAYERS 32
 
 new Float:oldPunchangle[MAX_PLAYERS][3];
+new Float:delta23[MAX_PLAYERS] = 0.0;
 
 public plugin_init()
 {
@@ -107,15 +108,6 @@ accurating(const ent, const Float:accuracy)
     } else {
         set_pdata_float(ent, m_flAccuracy, accuracy, 4);
     }
-
-    /*
-    // first shot accuracy
-    static nShots;
-    nShots = get_pdata_int(ent, m_iShotsFired, 4);
-    if (nShots == 0) {
-        set_pdata_float(ent, m_flAccuracy, accuracy, 4);
-    }
-    */
 }
 
 public attack_post(ent)
@@ -125,39 +117,29 @@ public attack_post(ent)
     nShots = get_pdata_int(ent, m_iShotsFired, 4);
     pev(owner, pev_punchangle, punchangle2);
 
-    if (4 <= nShots <= 10) {
-        punchangle2[0] -= oldPunchangle[owner][0];
-        punchangle2[0] *= 0.85;
-        punchangle2[0] += oldPunchangle[owner][0];
+    static Float:punch0, Float:deltaCur;
+    punch0 = oldPunchangle[owner][0];
+    deltaCur = punch0 - punchangle2[0];
+
+    if (nShots == 3) {
+        delta23[owner] = deltaCur;
+    } else {
+        static Float:deltaRef;
+        deltaRef = delta23[owner];
+        if (deltaRef > 0.0) {
+            if (deltaRef < deltaCur) {
+                punchangle2[0] = punch0 - deltaRef;
+            }
+        }
     }
-    if (1 <= nShots <= 10) {
+
+    if (1 <= nShots <= 7) {
         punchangle2[1] -= oldPunchangle[owner][1];
-        punchangle2[1] *= 0.1;
+        punchangle2[1] *= 0.2;
         punchangle2[1] += oldPunchangle[owner][1];
     }
+
     set_pev(owner, pev_punchangle, punchangle2);
-
-    /*
-    static nShots;
-    nShots = get_pdata_int(ent, m_iShotsFired, 4);
-    if (nShots < 30) {
-        static owner, Float:punchangle2[3];
-        owner = pev(ent, pev_owner);
-        pev(owner, pev_punchangle, punchangle2);
-
-        xs_vec_sub(punchangle2, oldPunchangle[owner], punchangle2);
-        xs_vec_mul_scalar(punchangle2, 0.9, punchangle2);
-        xs_vec_add(punchangle2, oldPunchangle[owner], punchangle2);
-        set_pev(owner, pev_punchangle, punchangle2);
-    } else if (2 < nShots <= 5) {
-        static owner, Float:punchangle2[3];
-        owner = pev(ent, pev_owner);
-        pev(owner, pev_punchangle, punchangle2);
-
-        punchangle2[1] *= 0.5; // move side
-        set_pev(owner, pev_punchangle, punchangle2);
-    }
-    */
 }
 
 public attack_020(ent)
