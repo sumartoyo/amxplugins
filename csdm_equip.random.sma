@@ -1172,17 +1172,19 @@ GenerateRandomWeapon(id)
 	copy(g_NextSecWeapons[id], 17, "weapon_usp")
 	copy(g_NextPrimWeapons[id], 17, "")
 
-	switch (random_num(0, 6)) {
+	switch (random_num(0, 8)) {
 		// pistols
 		case 0: copy(g_NextSecWeapons[id], 17, "weapon_fiveseven")
 		case 1: copy(g_NextSecWeapons[id], 17, "weapon_deagle")
 		// rifles
-		case 2: copy(g_NextPrimWeapons[id], 17, "weapon_ak47")
-		case 3: copy(g_NextPrimWeapons[id], 17, "weapon_m4a1")
-        case 4: copy(g_NextPrimWeapons[id], 17, "weapon_ak47")
+		case 2: copy(g_NextPrimWeapons[id], 17, "weapon_mp5navy")
+		case 3: copy(g_NextPrimWeapons[id], 17, "weapon_mac10")
+		case 4: copy(g_NextPrimWeapons[id], 17, "weapon_ak47")
 		case 5: copy(g_NextPrimWeapons[id], 17, "weapon_m4a1")
+		case 6: copy(g_NextPrimWeapons[id], 17, "weapon_ak47")
+		case 7: copy(g_NextPrimWeapons[id], 17, "weapon_m4a1")
 		// snipers
-		case 6: copy(g_NextPrimWeapons[id], 17, "weapon_awp")
+		case 8: copy(g_NextPrimWeapons[id], 17, "weapon_awp")
 	}
 }
 
