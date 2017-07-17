@@ -6,11 +6,9 @@
 #define AUTHOR  "OT"
 #define VERSION "1.5"
 
-#define m_pPlayer 41
 #define m_iClip 51
 #define m_flAccuracy 62
 #define m_iShotsFired 64
-#define m_flDecreaseShotsFired 76
 
 #define MAX_PLAYERS 32
 
@@ -146,7 +144,7 @@ new const Float:g_punchangle1[][] = {
 }
 
 new g_isContinue[MAX_PLAYERS];
-
+//new Float:g_nextReset[MAX_PLAYERS];
 
 public plugin_init()
 {
@@ -167,7 +165,7 @@ public plugin_init()
     RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_mp5navy", "attack_pre", 0);
     RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_ump45", "attack_pre", 0);
 
-    /* ================ */
+    // ================
 
     RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_ak47", "attack_post", 1);
     RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_aug", "attack_post", 1);
@@ -183,6 +181,23 @@ public plugin_init()
 
     RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_mp5navy", "attack_post", 1);
     RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_ump45", "attack_post", 1);
+
+    // ================
+
+    RegisterHam(Ham_Item_PostFrame, "weapon_ak47", "postframe", 0);
+    RegisterHam(Ham_Item_PostFrame, "weapon_aug", "postframe", 0);
+    RegisterHam(Ham_Item_PostFrame, "weapon_famas", "postframe", 0);
+    RegisterHam(Ham_Item_PostFrame, "weapon_galil", "postframe", 0);
+    RegisterHam(Ham_Item_PostFrame, "weapon_m249", "postframe", 0);
+    RegisterHam(Ham_Item_PostFrame, "weapon_m4a1", "postframe", 0);
+    RegisterHam(Ham_Item_PostFrame, "weapon_sg552", "postframe", 0);
+
+    RegisterHam(Ham_Item_PostFrame, "weapon_mac10", "postframe", 0);
+    RegisterHam(Ham_Item_PostFrame, "weapon_p90", "postframe", 0);
+    RegisterHam(Ham_Item_PostFrame, "weapon_tmp", "postframe", 0);
+
+    RegisterHam(Ham_Item_PostFrame, "weapon_mp5navy", "postframe", 0);
+    RegisterHam(Ham_Item_PostFrame, "weapon_ump45", "postframe", 0);
 }
 
 public attack_pre(ent)
@@ -197,21 +212,10 @@ public attack_pre(ent)
             g_isContinue[owner] = 1;
 
             nShots = get_pdata_int(ent, m_iShotsFired, 4);
-            if (0 < nShots < g_arrLen[weapon]) {
+            if (0 < nShots <= g_arrLen[weapon]) {
                 punchangle[0] = g_punchangle0[weapon][nShots];
                 punchangle[1] = g_punchangle1[weapon][nShots];
                 set_pev(owner, pev_punchangle, punchangle);
-            }
-
-            static playerFlags, Float:velocity[3], Float:length2d;
-            playerFlags = pev(owner, pev_flags);
-            pev(owner, pev_velocity, velocity);
-            length2d = (velocity[0] * velocity[0]) + (velocity[1] * velocity[1]);
-            if (!(playerFlags & FL_ONGROUND)) {
-            } else if (length2d > 19600) {
-            } else {
-                // roughly the same as weapon_accuracy_nospread "1"
-                set_pdata_float(ent, m_flAccuracy, 0.01, 4);
             }
         }
     }
@@ -219,21 +223,38 @@ public attack_pre(ent)
 
 public attack_post(ent)
 {
-    static owner, nShots, weapon, arrLen, Float:punchangle[3], arrIdx;
+    static owner, weapon, arrIdx, Float:punchangle[3];
     owner = pev(ent, pev_owner);
     if (g_isContinue[owner]) {
         weapon = get_user_weapon(owner);
-        arrLen = g_arrLen[weapon];
-        nShots = get_pdata_int(ent, m_iShotsFired, 4);
-        if (nShots < arrLen - 2) {
-            // smooth weapon "shake"
-            punchangle[0] = (g_punchangle0[weapon][nShots + 1] + g_punchangle0[weapon][nShots + 2]) / 2.0;
-            punchangle[1] = (g_punchangle1[weapon][nShots + 1] + g_punchangle1[weapon][nShots + 2]) / 2.0;
-        } else {
-            arrIdx = min(arrLen - 1, nShots + 1);
-            punchangle[0] = g_punchangle0[weapon][arrIdx];
-            punchangle[1] = g_punchangle1[weapon][arrIdx];
-        }
+        arrIdx = min(get_pdata_int(ent, m_iShotsFired, 4) - 1, g_arrLen[weapon] - 1);
+        pev(owner, pev_punchangle, punchangle);
+        punchangle[1] = g_punchangle1[weapon][arrIdx] - 0.375;
         set_pev(owner, pev_punchangle, punchangle);
+
+        /*
+        // nShots reset timer
+        g_nextReset[owner] = get_gametime() + 0.1932 + 0.1*floatsqroot(punchangle[0]*punchangle[0] + punchangle[1]*punchangle[1]);
+        */
+    }
+}
+
+public postframe(ent)
+{
+    static owner, nShots, Float:punchangle[3];
+    owner = pev(ent, pev_owner);
+    if (1 <= owner < MAX_PLAYERS) {
+        if (!(pev(owner, pev_button) & IN_ATTACK)) {
+            nShots = get_pdata_int(ent, m_iShotsFired, 4);
+            if (nShots > 1) {
+                pev(owner, pev_punchangle, punchangle);
+                if (punchangle[0] == 0.0 && punchangle[1] == 0.0) {
+				/*
+                if (get_gametime() > g_nextReset[owner]) {
+                */
+                    set_pdata_int(ent, m_iShotsFired, 1, 4);
+                }
+            }
+        }
     }
 }
