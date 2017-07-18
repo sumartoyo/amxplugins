@@ -143,8 +143,42 @@ new const Float:g_punchangle1[][] = {
         -0.481452, -0.583160, -0.705857, -0.548222, -0.130325, 0.098939, -0.004534, -0.063867, -0.410388, -0.733785, -0.678482, -0.336089, 0.202963, 0.452909, 0.784609, 1.215684, 1.450961, 1.774760, 1.662900, 1.332376, 1.453853 }
 }
 
+new const Float:g_punchBase[][] = {
+    // up_base, lateral_base
+    {}, // none
+    {}, // p228 - p250
+    {}, // shield
+    {}, // scout
+    {}, // hegrenade
+    {}, // xm1014
+    {}, // c4
+    { 0.775, 0.425 }, // mac10
+    { 0.625, 0.375 }, // aug
+    {}, // smokegrenade
+    {}, // elite
+    {}, // fiveseven
+    { 0.275, 0.2 }, // ump45
+    {}, // sg550
+    { 0.65, 0.35 }, // galil
+    { 0.625, 0.375 }, // famas
+    {}, // usp - usp-s
+    {}, // glock18
+    {}, // awp
+    { 0.25, 0.175 }, // mp5navy - mp7
+    {}, // m249
+    {}, // m3
+    { 0.65, 0.35 }, // m4a1 - m4a1-s
+    { 0.725, 0.375 }, // tmp - mp9
+    {}, // g3sg1
+    {}, // flashbang
+    {}, // deagle
+    { 0.625, 0.375 }, // sg552 - sg553
+    { 1.0, 0.375 }, // ak47
+    {}, // knife
+    { 0.3, 0.225 }  // p90
+};
+
 new g_isContinue[MAX_PLAYERS];
-//new Float:g_nextReset[MAX_PLAYERS];
 
 public plugin_init()
 {
@@ -210,9 +244,9 @@ public attack_pre(ent)
         nClip = get_pdata_int(ent, m_iClip, 4);
         if (nClip > 0) {
             g_isContinue[owner] = 1;
-
             nShots = get_pdata_int(ent, m_iShotsFired, 4);
             if (0 < nShots <= g_arrLen[weapon]) {
+                pev(owner, pev_punchangle, punchangle);
                 punchangle[0] = g_punchangle0[weapon][nShots];
                 punchangle[1] = g_punchangle1[weapon][nShots];
                 set_pev(owner, pev_punchangle, punchangle);
@@ -227,15 +261,11 @@ public attack_post(ent)
     owner = pev(ent, pev_owner);
     if (g_isContinue[owner]) {
         weapon = get_user_weapon(owner);
-        arrIdx = min(get_pdata_int(ent, m_iShotsFired, 4) - 1, g_arrLen[weapon] - 1);
+        arrIdx = min(get_pdata_int(ent, m_iShotsFired, 4), g_arrLen[weapon] - 1);
         pev(owner, pev_punchangle, punchangle);
-        punchangle[1] = g_punchangle1[weapon][arrIdx] - 0.375;
+        punchangle[0] = g_punchangle0[weapon][arrIdx] - g_punchBase[weapon][0];
+        punchangle[1] = g_punchangle1[weapon][arrIdx] - g_punchBase[weapon][1];
         set_pev(owner, pev_punchangle, punchangle);
-
-        /*
-        // nShots reset timer
-        g_nextReset[owner] = get_gametime() + 0.1932 + 0.1*floatsqroot(punchangle[0]*punchangle[0] + punchangle[1]*punchangle[1]);
-        */
     }
 }
 
@@ -249,9 +279,6 @@ public postframe(ent)
             if (nShots > 1) {
                 pev(owner, pev_punchangle, punchangle);
                 if (punchangle[0] == 0.0 && punchangle[1] == 0.0) {
-				/*
-                if (get_gametime() > g_nextReset[owner]) {
-                */
                     set_pdata_int(ent, m_iShotsFired, 1, 4);
                 }
             }
