@@ -143,44 +143,9 @@ new const Float:g_punchangle1[][] = {
         -0.481452, -0.583160, -0.705857, -0.548222, -0.130325, 0.098939, -0.004534, -0.063867, -0.410388, -0.733785, -0.678482, -0.336089, 0.202963, 0.452909, 0.784609, 1.215684, 1.450961, 1.774760, 1.662900, 1.332376, 1.453853 }
 }
 
-new const Float:g_punchBase[][] = {
-    // up_base, lateral_base
-    {}, // none
-    {}, // p228 - p250
-    {}, // shield
-    {}, // scout
-    {}, // hegrenade
-    {}, // xm1014
-    {}, // c4
-    { 0.775, 0.425 }, // mac10
-    { 0.625, 0.375 }, // aug
-    {}, // smokegrenade
-    {}, // elite
-    {}, // fiveseven
-    { 0.275, 0.2 }, // ump45
-    {}, // sg550
-    { 0.65, 0.35 }, // galil
-    { 0.625, 0.375 }, // famas
-    {}, // usp - usp-s
-    {}, // glock18
-    {}, // awp
-    { 0.25, 0.175 }, // mp5navy - mp7
-    {}, // m249
-    {}, // m3
-    { 0.65, 0.35 }, // m4a1 - m4a1-s
-    { 0.725, 0.375 }, // tmp - mp9
-    {}, // g3sg1
-    {}, // flashbang
-    {}, // deagle
-    { 0.625, 0.375 }, // sg552 - sg553
-    { 1.0, 0.375 }, // ak47
-    {}, // knife
-    { 0.3, 0.225 }  // p90
-};
-
-new g_isContinue[MAX_PLAYERS];
-
-new Float:g_accuracyBase[MAX_PLAYERS];
+new g_nClip[MAX_PLAYERS];
+new g_lastShot[MAX_PLAYERS];
+new Float:g_lastPunchangle[MAX_PLAYERS][3];
 
 public plugin_init()
 {
@@ -220,84 +185,65 @@ public plugin_init()
 
     // ================
 
-    RegisterHam(Ham_Item_PostFrame, "weapon_ak47", "postframe", 0);
-    RegisterHam(Ham_Item_PostFrame, "weapon_aug", "postframe", 0);
-    RegisterHam(Ham_Item_PostFrame, "weapon_famas", "postframe", 0);
-    RegisterHam(Ham_Item_PostFrame, "weapon_galil", "postframe", 0);
-    RegisterHam(Ham_Item_PostFrame, "weapon_m249", "postframe", 0);
-    RegisterHam(Ham_Item_PostFrame, "weapon_m4a1", "postframe", 0);
-    RegisterHam(Ham_Item_PostFrame, "weapon_sg552", "postframe", 0);
-
-    RegisterHam(Ham_Item_PostFrame, "weapon_mac10", "postframe", 0);
-    RegisterHam(Ham_Item_PostFrame, "weapon_p90", "postframe", 0);
-    RegisterHam(Ham_Item_PostFrame, "weapon_tmp", "postframe", 0);
-
-    RegisterHam(Ham_Item_PostFrame, "weapon_mp5navy", "postframe", 0);
-    RegisterHam(Ham_Item_PostFrame, "weapon_ump45", "postframe", 0);
+    register_forward(FM_PlayerPostThink, "player_post_think");
 }
 
 public attack_pre(ent)
 {
-    static owner, weapon, nClip, nShots, Float:punchangle[3];
+    static owner, weapon, nShots;
     owner = pev(ent, pev_owner);
-    g_isContinue[owner] = 0;
-    weapon = get_user_weapon(owner);
-    if (g_arrLen[weapon] > 0) {
-        nClip = get_pdata_int(ent, m_iClip, 4);
-        if (nClip > 0) {
-            g_isContinue[owner] = 1;
-            nShots = get_pdata_int(ent, m_iShotsFired, 4);
-            if (0 < nShots <= g_arrLen[weapon]) {
-                pev(owner, pev_punchangle, punchangle);
-                punchangle[0] = g_punchangle0[weapon][nShots];
-                punchangle[1] = g_punchangle1[weapon][nShots];
-                set_pev(owner, pev_punchangle, punchangle);
+    if (!is_user_bot(owner)) {
+        g_nClip[owner] = 0;
+
+        weapon = get_user_weapon(owner);
+        if (g_arrLen[weapon] > 0) {
+            static playerFlags, Float:velocity[3], Float:length2d;
+            playerFlags = pev(owner, pev_flags);
+            pev(owner, pev_velocity, velocity);
+            length2d = (velocity[0] * velocity[0]) + (velocity[1] * velocity[1]);
+            if (!(playerFlags & FL_ONGROUND)) {
+            } else if (length2d > 6930.5625) { // crouch speed
+            } else {
+                set_pdata_float(ent, m_flAccuracy, 0.2, 4);
             }
 
-            if (nShots == 0) {
-                g_accuracyBase[owner] = get_pdata_float(ent, m_flAccuracy, 4);
-            } else {
-                static playerFlags, Float:velocity[3], Float:length2d;
-                playerFlags = pev(owner, pev_flags);
-                pev(owner, pev_velocity, velocity);
-                length2d = (velocity[0] * velocity[0]) + (velocity[1] * velocity[1]);
-                if (!(playerFlags & FL_ONGROUND)) {
-                } else if (length2d > 6930.5625) { // crouch speed
-                } else {
-                    set_pdata_float(ent, m_flAccuracy, g_accuracyBase[owner], 4);
+            g_nClip[owner] = get_pdata_int(ent, m_iClip, 4);
+
+            nShots = get_pdata_int(ent, m_iShotsFired, 4);
+            if (nShots <= g_lastShot[owner]) {
+                pev(owner, pev_punchangle, g_lastPunchangle[owner]);
+                if (g_lastPunchangle[owner][0] == 0.0 && g_lastPunchangle[owner][1] == 0.0) {
+                    set_pdata_int(ent, m_iShotsFired, 0, 4);
                 }
             }
+            g_lastShot[owner] = nShots;
         }
     }
 }
 
 public attack_post(ent)
 {
-    static owner, weapon, arrIdx, Float:punchangle[3];
+    static owner, weapon, nShots;
     owner = pev(ent, pev_owner);
-    if (g_isContinue[owner]) {
-        weapon = get_user_weapon(owner);
-        arrIdx = min(get_pdata_int(ent, m_iShotsFired, 4), g_arrLen[weapon] - 1);
-        pev(owner, pev_punchangle, punchangle);
-        punchangle[0] = g_punchangle0[weapon][arrIdx] - g_punchBase[weapon][0];
-        punchangle[1] = g_punchangle1[weapon][arrIdx] - g_punchBase[weapon][1];
-        set_pev(owner, pev_punchangle, punchangle);
+    if (!is_user_bot(owner)) {
+        if (g_nClip[owner] > 0) {
+            weapon = get_user_weapon(owner);
+            nShots = min(get_pdata_int(ent, m_iShotsFired, 4), g_arrLen[weapon] - 1);
+            g_lastPunchangle[owner][0] += g_punchangle0[weapon][nShots] - g_punchangle0[weapon][nShots - 1];
+            g_lastPunchangle[owner][1] += g_punchangle1[weapon][nShots] - g_punchangle1[weapon][nShots - 1];
+            set_pev(owner, pev_punchangle, g_lastPunchangle[owner]);
+        }
     }
 }
 
-public postframe(ent)
-{
-    static owner, nShots, Float:punchangle[3];
-    owner = pev(ent, pev_owner);
-    if (1 <= owner < MAX_PLAYERS) {
-        if (!(pev(owner, pev_button) & IN_ATTACK)) {
-            nShots = get_pdata_int(ent, m_iShotsFired, 4);
-            if (nShots > 1) {
-                pev(owner, pev_punchangle, punchangle);
-                if (punchangle[0] == 0.0 && punchangle[1] == 0.0) {
-                    set_pdata_int(ent, m_iShotsFired, 1, 4);
-                }
+public player_post_think(owner) {
+    if (!is_user_bot(owner)) {
+        if (pev(owner, pev_button) & IN_ATTACK) {
+            if (g_nClip[owner] > 0) {
+                set_pev(owner, pev_punchangle, g_lastPunchangle[owner]);
             }
+        } else {
+            g_nClip[owner] = 0;
         }
     }
 }
