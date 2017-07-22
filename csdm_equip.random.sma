@@ -1175,7 +1175,7 @@ GenerateRandomWeapon(id)
 	switch (random_num(0, 8)) {
 		// pistols
 		case 0: copy(g_NextSecWeapons[id], 17, "weapon_fiveseven")
-		case 1: copy(g_NextSecWeapons[id], 17, "weapon_deagle")
+		case 1: copy(g_NextSecWeapons[id], 17, "weapon_fiveseven")
 		// rifles
 		case 2: copy(g_NextPrimWeapons[id], 17, "weapon_mp5navy")
 		case 3: copy(g_NextPrimWeapons[id], 17, "weapon_mac10")
