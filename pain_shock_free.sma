@@ -21,21 +21,25 @@ public plugin_init()
 
 public TakeDamage_Pre(id, inflictor, attacker, Float:damage, bits)
 {
-    pev(id, pev_velocity, oldVelocity[id]);
+    if (!is_user_bot(id)) {
+        pev(id, pev_velocity, oldVelocity[id]);
+    }
 }
 
 public TakeDamage_Post(id, inflictor, attacker, Float:damage, bits)
 {
-    static Float:painShock;
-    painShock = get_pdata_float(id, m_flPainShock, 5);
+    if (!is_user_bot(id)) {
+        static Float:painShock;
+        painShock = get_pdata_float(id, m_flPainShock, 5);
 
-    if (painShock < 1.0) {
-        set_pdata_float(id, m_flPainShock, floatmin(0.9, painShock + 0.1), 5);
+        if (painShock < 1.0) {
+            set_pdata_float(id, m_flPainShock, floatmin(0.9, painShock + 0.1), 5);
 
-        static Float:velocity[3];
-        pev(id, pev_velocity, velocity);
-        velocity[0] = floatmin(100.0 * painShock, oldVelocity[id][0]);
-        velocity[1] = floatmin(100.0 * painShock, oldVelocity[id][1]);
-        set_pev(id, pev_velocity, velocity);
+            static Float:velocity[3];
+            pev(id, pev_velocity, velocity);
+            velocity[0] = floatmin(100.0 * painShock, oldVelocity[id][0]);
+            velocity[1] = floatmin(100.0 * painShock, oldVelocity[id][1]);
+            set_pev(id, pev_velocity, velocity);
+        }
     }
 }
