@@ -180,6 +180,8 @@ new const Float:g_punchBase[][] = {
 
 new g_isContinue[MAX_PLAYERS];
 
+new Float:g_accuracyBase[MAX_PLAYERS];
+
 public plugin_init()
 {
     register_plugin(PLUGIN, VERSION, AUTHOR);
@@ -250,6 +252,20 @@ public attack_pre(ent)
                 punchangle[0] = g_punchangle0[weapon][nShots];
                 punchangle[1] = g_punchangle1[weapon][nShots];
                 set_pev(owner, pev_punchangle, punchangle);
+            }
+
+            if (nShots == 0) {
+                g_accuracyBase[owner] = get_pdata_float(ent, m_flAccuracy, 4);
+            } else {
+                static playerFlags, Float:velocity[3], Float:length2d;
+                playerFlags = pev(owner, pev_flags);
+                pev(owner, pev_velocity, velocity);
+                length2d = (velocity[0] * velocity[0]) + (velocity[1] * velocity[1]);
+                if (!(playerFlags & FL_ONGROUND)) {
+                } else if (length2d > 6930.5625) { // crouch speed
+                } else {
+                    set_pdata_float(ent, m_flAccuracy, g_accuracyBase[owner], 4);
+                }
             }
         }
     }
