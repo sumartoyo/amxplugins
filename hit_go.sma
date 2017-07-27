@@ -48,30 +48,32 @@ public HitGoTraceAttack(victim, attacker, Float:damage, Float:direction[3], tr, 
 {
 	static hitgroup;
 	hitgroup = get_tr2(tr, TR_iHitgroup);
-	if (hitgroup >= HIT_HEAD && hitgroup <= HIT_RIGHTLEG) {
-		static weapon;
-		weapon = get_user_weapon(attacker);
-		switch (weapon) {
-			case CSW_USP,
-				CSW_GLOCK18,
-				CSW_P228,
-				CSW_ELITE,
-				CSW_FIVESEVEN,
-				CSW_DEAGLE,
-				CSW_MP5NAVY,
-				CSW_UMP45,
-				CSW_MAC10,
-				CSW_TMP,
-				CSW_P90,
-				CSW_AK47,
-				CSW_M4A1,
-				CSW_AUG,
-				CSW_SG552
-			: {
-				static Float:factor;
-				factor = g_factors[weapon][hitgroup];
-				if (factor > 0.01) {
-					SetHamParamFloat(3, damage * factor);
+	switch (hitgroup >= HIT_HEAD && hitgroup <= HIT_RIGHTLEG) {
+		case 1: {
+			static weapon;
+			weapon = get_user_weapon(attacker);
+			switch (weapon) {
+				case CSW_USP,
+					CSW_GLOCK18,
+					CSW_P228,
+					CSW_ELITE,
+					CSW_FIVESEVEN,
+					CSW_DEAGLE,
+					CSW_MP5NAVY,
+					CSW_UMP45,
+					CSW_MAC10,
+					CSW_TMP,
+					CSW_P90,
+					CSW_AK47,
+					CSW_M4A1,
+					CSW_AUG,
+					CSW_SG552
+				: {
+					static Float:factor;
+					factor = g_factors[weapon][hitgroup];
+					if (factor > 0.01) {
+						SetHamParamFloat(3, damage * factor);
+					}
 				}
 			}
 		}

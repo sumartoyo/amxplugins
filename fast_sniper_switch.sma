@@ -91,27 +91,33 @@ public Event_WeapPickup(iPlrId)
 
 public Ham_Item_Deploy_Post(iEnt)
 {
-    if( !pev_valid(iEnt) )
-        return;
+    switch (pev_valid(iEnt)) {
+        case 0: {
+            return;
+        }
+    }
 
     static iPlrId;
     iPlrId = get_pdata_cbase(iEnt, m_pPlayer, 4);
-    if( !is_user_alive(iPlrId) )
-        return;
+    switch (is_user_alive(iPlrId)) {
+        case 0: {
+            return;
+        }
+    }
 
-    if( iEnt!=get_pdata_cbase(iPlrId, m_pActiveItem, 5) || get_pdata_float(iEnt, m_flDecreaseShotsFired, 4)!=get_gametime() )
-        return;
+    switch (iEnt != get_pdata_cbase(iPlrId, m_pActiveItem, 5) || get_pdata_float(iEnt, m_flDecreaseShotsFired, 4) != get_gametime()) {
+        case 1: {
+            return;
+        }
+    }
 
-    switch( get_pdata_int(iEnt, m_iId, 4) )
-    {
-        case CSW_AWP:
-        {
+    switch (get_pdata_int(iEnt, m_iId, 4)) {
+        case CSW_AWP: {
             set_pdata_float(iEnt, m_flNextPrimaryAttack, AWP_SWITCH_DELAY, 4);
             set_pdata_float(iEnt, m_flNextSecondaryAttack, AWP_SWITCH_DELAY, 4);
             set_pdata_float(iPlrId, m_flNextAttack, AWP_SWITCH_DELAY, 5);
         }
-        case CSW_SCOUT:
-        {
+        case CSW_SCOUT: {
             set_pdata_float(iEnt, m_flNextPrimaryAttack, SCOUT_SWITCH_DELAY, 4);
             set_pdata_float(iEnt, m_flNextSecondaryAttack, SCOUT_SWITCH_DELAY, 4);
             set_pdata_float(iPlrId, m_flNextAttack, SCOUT_SWITCH_DELAY, 5);

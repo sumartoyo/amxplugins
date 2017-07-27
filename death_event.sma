@@ -25,16 +25,74 @@ public spawnPlayer(id) {
 
 public client_damage(attacker, victim, damage, wpnindex, hitplace, TA)
 {
+    switch (1 <= victim <= MAX_PLAYERS && 1 <= attacker <= MAX_PLAYERS && victim != attacker) {
+        case 1: {
+            switch (is_user_alive(attacker)) {
+                case 1: {
+                    give_dmg[attacker][victim] += damage;
+                    give_hit[attacker][victim] += 1;
+                }
+            }
+        }
+    }
+    /*
     if (1 <= victim <= MAX_PLAYERS && 1 <= attacker <= MAX_PLAYERS && victim != attacker) {
         if (is_user_alive(attacker)) {
             give_dmg[attacker][victim] += damage;
             give_hit[attacker][victim] += 1;
         }
     }
+    */
 }
 
 public client_death(killer, victim, wpnindex, hitplace, TK)
 {
+    switch (1 <= killer <= MAX_PLAYERS && 1 <= victim <= MAX_PLAYERS && killer != victim) {
+        case 1: {
+            static isHs;
+            isHs = hitplace == HIT_HEAD;
+
+            switch (is_user_bot(killer)) {
+                case 0: {
+                    static victimName[32];
+                    get_user_name(victim, victimName, 31);
+                    // client_cmd(killer, "spk ^"%s^"", KILL_DING_SOUND);
+
+                    set_hudmessage(255, 255, 255, 0.8, 0.2, 0, 0.0, 0.1, 0.0, 3.9, 4);
+                    show_hudmessage(killer, "%s: %s^n%i in %i %s",
+                        isHs ? "HS" : "Dead",
+                        victimName,
+                        give_dmg[killer][victim],
+                        give_hit[killer][victim],
+                        give_hit[killer][victim] == 1 ? "hit" : "hits"
+                    );
+                }
+            }
+
+            switch (is_user_bot(victim)) {
+                case 0: {
+                    static killerName[32], weaponName[32];
+                    get_user_name(killer, killerName, 31);
+                    get_weaponname(wpnindex, weaponName, 31);
+
+                    set_hudmessage(255, 255, 255, -1.0, 0.6, 0, 0.0, 3.0, 0.0, 0.5, 3);
+                    show_hudmessage(victim, "%s | %s%s^nYou took %i in %i %s^nYou gave %i in %i %s",
+                        killerName,
+                        weaponName,
+                        isHs ? " (HS)" : "",
+                        give_dmg[killer][victim],
+                        give_hit[killer][victim],
+                        give_hit[killer][victim] == 1 ? "hit" : "hits",
+                        give_dmg[victim][killer],
+                        give_hit[victim][killer],
+                        give_hit[victim][killer] == 1 ? "hit" : "hits"
+                    );
+                }
+            }
+        }
+    }
+
+    /*
     if (1 <= killer <= MAX_PLAYERS && 1 <= victim <= MAX_PLAYERS && killer != victim) {
         static isHs;
         isHs = hitplace == HIT_HEAD;
@@ -73,4 +131,5 @@ public client_death(killer, victim, wpnindex, hitplace, TK)
             );
         }
     }
+    */
 }
