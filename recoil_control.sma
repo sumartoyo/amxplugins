@@ -3,9 +3,11 @@
 #include <hamsandwich>
 
 #define PLUGIN  "Recoil Control"
-#define AUTHOR  "OT"
-#define VERSION "1.5"
+#define AUTHOR  "Dimas"
+#define VERSION "1.0"
 
+#define m_iId 43
+#define m_flNextPrimaryAttack 46
 #define m_iClip 51
 #define m_flAccuracy 62
 #define m_iShotsFired 64
@@ -143,107 +145,182 @@ new const Float:g_punchangle1[][] = {
         -0.481452, -0.583160, -0.705857, -0.548222, -0.130325, 0.098939, -0.004534, -0.063867, -0.410388, -0.733785, -0.678482, -0.336089, 0.202963, 0.452909, 0.784609, 1.215684, 1.450961, 1.774760, 1.662900, 1.332376, 1.453853 }
 }
 
-new g_nClip[MAX_PLAYERS];
-new g_lastShot[MAX_PLAYERS];
+new const Float:g_shake = 0.65;
+
+
+
+new g_isContinue[MAX_PLAYERS];
+new g_isHolding[MAX_PLAYERS];
+new Float:g_lastTime[MAX_PLAYERS];
 new Float:g_lastPunchangle[MAX_PLAYERS][3];
+
+
 
 public plugin_init()
 {
     register_plugin(PLUGIN, VERSION, AUTHOR);
 
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_ak47", "attack_pre", 0);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_aug", "attack_pre", 0);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_famas", "attack_pre", 0);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_galil", "attack_pre", 0);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_m249", "attack_pre", 0);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_m4a1", "attack_pre", 0);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_sg552", "attack_pre", 0);
+    new owner = 0;
+    while (owner < MAX_PLAYERS) {
+        g_isContinue[owner] = 0;
+        g_isHolding[owner] = 0;
+        g_lastTime[owner] = 0.0;
+        copy2d(g_lastPunchangle[owner], Float:{ 0.0, 0.0, 0.0 });
+        owner++;
+    }
 
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_mac10", "attack_pre", 0);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_p90", "attack_pre", 0);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_tmp", "attack_pre", 0);
-
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_mp5navy", "attack_pre", 0);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_ump45", "attack_pre", 0);
-
-    // ================
-
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_ak47", "attack_post", 1);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_aug", "attack_post", 1);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_famas", "attack_post", 1);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_galil", "attack_post", 1);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_m249", "attack_post", 1);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_m4a1", "attack_post", 1);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_sg552", "attack_post", 1);
-
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_mac10", "attack_post", 1);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_p90", "attack_post", 1);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_tmp", "attack_post", 1);
-
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_mp5navy", "attack_post", 1);
-    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_ump45", "attack_post", 1);
-
-    // ================
+    new weaponid, weaponname[32];
+    for (weaponid = 1; weaponid <= CSW_P90; weaponid++) {
+        switch (g_arrLen[weaponid] > 0) {
+            case 1: {
+                get_weaponname(weaponid, weaponname, 31);
+                RegisterHam(Ham_Weapon_PrimaryAttack, weaponname, "attack_pre", 0);
+                RegisterHam(Ham_Weapon_PrimaryAttack, weaponname, "attack_post", 1);
+            }
+        }
+    }
 
     register_forward(FM_PlayerPostThink, "player_post_think");
 }
 
-public attack_pre(ent)
+
+
+copy2d(Float:dest[], const Float:src[])
 {
-    static owner, weapon, nShots;
+    dest[0] = src[0];
+    dest[1] = src[1];
+}
+
+Float:calc_delta(const Float:arr[], const i, const j)
+{
+    return arr[i] - arr[j];
+}
+
+
+
+public attack_pre(const ent)
+{
+    static owner;
     owner = pev(ent, pev_owner);
-    if (!is_user_bot(owner)) {
-        g_nClip[owner] = 0;
+    switch (is_user_bot(owner)) {
+        case 0: {
+            g_isContinue[owner] = 0;
 
-        weapon = get_user_weapon(owner);
-        if (g_arrLen[weapon] > 0) {
-            static playerFlags, Float:velocity[3], Float:length2d;
-            playerFlags = pev(owner, pev_flags);
-            pev(owner, pev_velocity, velocity);
-            length2d = (velocity[0] * velocity[0]) + (velocity[1] * velocity[1]);
-            if (!(playerFlags & FL_ONGROUND)) {
-            } else if (length2d > 6930.5625) { // crouch speed
-            } else {
-                set_pdata_float(ent, m_flAccuracy, 0.2, 4);
-            }
+            static weapon;
+            weapon = get_pdata_int(ent, m_iId, 4);
+            switch (g_arrLen[weapon] > 0) {
+                case 1: {
+                    static playerFlags, Float:velocity[3], Float:velocity0, Float:velocity1, Float:length;
+                    playerFlags = pev(owner, pev_flags);
+                    pev(owner, pev_velocity, velocity);
+                    velocity0 = velocity[0];
+                    velocity1 = velocity[1];
+                    length = (velocity0 * velocity0) + (velocity1 * velocity1);
+                    switch ((playerFlags & FL_ONGROUND) && length <= 6930.5625) {
+                        case 1: { // on ground AND not more than crouch speed
+                            switch (g_isHolding[owner] || get_gametime() - g_lastTime[owner] >= 0.25) {
+                                case 1: {
+                                    set_pdata_float(ent, m_flAccuracy, 0.2, 4);
+                                }
+                                case 0: {
+                                    set_pdata_float(ent, m_flAccuracy, 1.0, 4);
+                                }
+                            }
+                        }
+                    }
 
-            g_nClip[owner] = get_pdata_int(ent, m_iClip, 4);
-
-            nShots = get_pdata_int(ent, m_iShotsFired, 4);
-            if (nShots <= g_lastShot[owner]) {
-                pev(owner, pev_punchangle, g_lastPunchangle[owner]);
-                if (g_lastPunchangle[owner][0] == 0.0 && g_lastPunchangle[owner][1] == 0.0) {
-                    set_pdata_int(ent, m_iShotsFired, 0, 4);
+                    g_isHolding[owner] = 1;
+                    g_lastTime[owner] = get_gametime();
+                    g_isContinue[owner] = get_pdata_int(ent, m_iClip, 4) > 0;
+                    pev(owner, pev_punchangle, g_lastPunchangle[owner]);
                 }
             }
-            g_lastShot[owner] = nShots;
         }
     }
 }
 
-public attack_post(ent)
+public attack_post(const ent)
 {
-    static owner, weapon, nShots;
+    static owner;
     owner = pev(ent, pev_owner);
-    if (!is_user_bot(owner)) {
-        if (g_nClip[owner] > 0) {
-            weapon = get_user_weapon(owner);
-            nShots = min(get_pdata_int(ent, m_iShotsFired, 4), g_arrLen[weapon] - 1);
-            g_lastPunchangle[owner][0] += g_punchangle0[weapon][nShots] - g_punchangle0[weapon][nShots - 1];
-            g_lastPunchangle[owner][1] += g_punchangle1[weapon][nShots] - g_punchangle1[weapon][nShots - 1];
-            set_pev(owner, pev_punchangle, g_lastPunchangle[owner]);
+    switch (is_user_bot(owner)) {
+        case 0: {
+            switch (g_isContinue[owner]) {
+                case 1: {
+                    static weapon, nShots;
+                    weapon = get_pdata_int(ent, m_iId, 4);
+                    nShots = min(get_pdata_int(ent, m_iShotsFired, 4), g_arrLen[weapon] - 1);
+
+                    static Float:lastPunchangle[3], Float:lastPunchangle0, Float:lastPunchangle1;
+                    copy2d(lastPunchangle, g_lastPunchangle[owner]);
+                    lastPunchangle0 = lastPunchangle[0] += calc_delta(g_punchangle0[weapon], nShots, nShots - 1);
+                    lastPunchangle1 = lastPunchangle[1] += calc_delta(g_punchangle1[weapon], nShots, nShots - 1);
+                    copy2d(g_lastPunchangle[owner], lastPunchangle);
+
+                    static Float:length, Float:factor;
+                    length = floatsqroot((lastPunchangle0 * lastPunchangle0) + (lastPunchangle1 * lastPunchangle1));
+                    factor = (length + g_shake) / length;
+
+                    static Float:punchangle[3];
+                    punchangle[0] = lastPunchangle0 * factor;
+                    punchangle[1] = lastPunchangle1 * factor;
+                    set_pev(owner, pev_punchangle, punchangle);
+                }
+            }
         }
     }
 }
 
-public player_post_think(owner) {
-    if (!is_user_bot(owner)) {
-        if (pev(owner, pev_button) & IN_ATTACK) {
-            if (g_nClip[owner] > 0) {
-                set_pev(owner, pev_punchangle, g_lastPunchangle[owner]);
+public player_post_think(const owner) {
+    switch (is_user_bot(owner)) {
+        case 0: {
+            switch (1 && pev(owner, pev_button) & IN_ATTACK) {
+                case 1: {
+                    switch (g_isContinue[owner]) {
+                        case 1: {
+                            static Float:punchangle[3], Float:lastPunchangle[3];
+                            pev(owner, pev_punchangle, punchangle);
+                            copy2d(lastPunchangle, g_lastPunchangle[owner]);
+
+                            static Float:punchangle0, Float:punchangle1;
+                            punchangle0 = punchangle[0];
+                            punchangle1 = punchangle[1];
+                            static Float:lastPunchangle0, Float:lastPunchangle1;
+                            lastPunchangle0 = lastPunchangle[0];
+                            lastPunchangle1 = lastPunchangle[1];
+
+                            switch (punchangle0 > lastPunchangle0) {
+                                case 1: {
+                                    punchangle[0] = lastPunchangle0;
+                                }
+                            }
+
+                            switch (punchangle1 > 0.0) {
+                                case 1: {
+                                    switch (punchangle1 < lastPunchangle1) {
+                                        case 1: {
+                                            punchangle[1] = lastPunchangle1;
+                                        }
+                                    }
+                                }
+                                default: {
+                                    switch (punchangle1 > lastPunchangle1) {
+                                        case 1: {
+                                            punchangle[1] = lastPunchangle1;
+                                        }
+                                    }
+                                }
+                            }
+
+                            set_pev(owner, pev_punchangle, punchangle);
+                        }
+                    }
+                }
+                default: {
+                    g_isContinue[owner] = 0;
+                    g_isHolding[owner] = 0;
+                }
             }
-        } else {
-            g_nClip[owner] = 0;
         }
     }
 }
