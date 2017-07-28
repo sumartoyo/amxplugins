@@ -1,4 +1,5 @@
 #include <amxmodx>
+#include <engine>
 #include <fakemeta>
 #include <hamsandwich>
 
@@ -145,8 +146,6 @@ new const Float:g_punchangle1[][] = {
         -0.481452, -0.583160, -0.705857, -0.548222, -0.130325, 0.098939, -0.004534, -0.063867, -0.410388, -0.733785, -0.678482, -0.336089, 0.202963, 0.452909, 0.784609, 1.215684, 1.450961, 1.774760, 1.662900, 1.332376, 1.453853 }
 }
 
-new const Float:g_shake = 0.65;
-
 
 
 new g_isContinue[MAX_PLAYERS];
@@ -179,8 +178,6 @@ public plugin_init()
             }
         }
     }
-
-    register_forward(FM_PlayerPostThink, "player_post_think");
 }
 
 
@@ -196,6 +193,20 @@ Float:calc_delta(const Float:arr[], const i, const j)
     return arr[i] - arr[j];
 }
 
+get_nShots(const Float:arr[], const len, const Float:punchangle0)
+{
+    new i = 0;
+    while (i < len) {
+        switch (punchangle0 >= arr[i]) {
+            case 1: {
+                return i;
+            }
+        }
+        i++;
+    }
+    return i;
+}
+
 
 
 public attack_pre(const ent)
@@ -206,9 +217,10 @@ public attack_pre(const ent)
         case 0: {
             g_isContinue[owner] = 0;
 
-            static weapon;
+            static weapon, arrLen;
             weapon = get_pdata_int(ent, m_iId, 4);
-            switch (g_arrLen[weapon] > 0) {
+            arrLen = g_arrLen[weapon];
+            switch (arrLen > 0) {
                 case 1: {
                     static playerFlags, Float:velocity[3], Float:velocity0, Float:velocity1, Float:length;
                     playerFlags = pev(owner, pev_flags);
@@ -229,10 +241,24 @@ public attack_pre(const ent)
                         }
                     }
 
+                    pev(owner, pev_punchangle, g_lastPunchangle[owner]);
+                    switch (g_isHolding[owner]) {
+                        case 0: {
+                            static nShots, a_nShots;
+                            nShots = get_pdata_int(ent, m_iShotsFired, 4);
+                            a_nShots = get_nShots(g_punchangle0[weapon], arrLen, g_lastPunchangle[owner][0]);
+                            switch (a_nShots < nShots) {
+                                case 1: {
+                                    set_pdata_int(ent, m_iShotsFired, a_nShots, 4);
+                                    g_lastPunchangle[owner][1] *= 0.5;
+                                }
+                            }
+                        }
+                    }
+
                     g_isHolding[owner] = 1;
                     g_lastTime[owner] = get_gametime();
                     g_isContinue[owner] = get_pdata_int(ent, m_iClip, 4) > 0;
-                    pev(owner, pev_punchangle, g_lastPunchangle[owner]);
                 }
             }
         }
@@ -249,17 +275,26 @@ public attack_post(const ent)
                 case 1: {
                     static weapon, nShots;
                     weapon = get_pdata_int(ent, m_iId, 4);
-                    nShots = min(get_pdata_int(ent, m_iShotsFired, 4), g_arrLen[weapon] - 1);
+                    nShots = get_pdata_int(ent, m_iShotsFired, 4);
 
                     static Float:lastPunchangle[3], Float:lastPunchangle0, Float:lastPunchangle1;
                     copy2d(lastPunchangle, g_lastPunchangle[owner]);
-                    lastPunchangle0 = lastPunchangle[0] += calc_delta(g_punchangle0[weapon], nShots, nShots - 1);
-                    lastPunchangle1 = lastPunchangle[1] += calc_delta(g_punchangle1[weapon], nShots, nShots - 1);
+                    switch (nShots > g_arrLen[weapon] - 1) {
+                        case 1: {
+                            lastPunchangle0 = lastPunchangle[0];
+                            lastPunchangle1 = lastPunchangle[1];
+                        }
+                        default: {
+                            lastPunchangle0 = lastPunchangle[0] += calc_delta(g_punchangle0[weapon], nShots, nShots - 1);
+                            lastPunchangle1 = lastPunchangle[1] += calc_delta(g_punchangle1[weapon], nShots, nShots - 1);
+                        }
+                    }
                     copy2d(g_lastPunchangle[owner], lastPunchangle);
 
-                    static Float:length, Float:factor;
+                    static Float:length, Float:grow, Float:factor;
                     length = floatsqroot((lastPunchangle0 * lastPunchangle0) + (lastPunchangle1 * lastPunchangle1));
-                    factor = (length + g_shake) / length;
+                    grow = floatmin(0.22, (nShots - 1) * 0.02);
+                    factor = (length + 0.18 + grow) / length;
 
                     static Float:punchangle[3];
                     punchangle[0] = lastPunchangle0 * factor;
@@ -271,7 +306,7 @@ public attack_post(const ent)
     }
 }
 
-public player_post_think(const owner) {
+public client_PostThink(owner) {
     switch (is_user_bot(owner)) {
         case 0: {
             switch (1 && pev(owner, pev_button) & IN_ATTACK) {
