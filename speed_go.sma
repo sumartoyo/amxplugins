@@ -7,13 +7,16 @@
 #define AUTHOR  "Dimas"
 #define VERSION "1.0"
 
+#define MAX_PLAYERS 32
 #define MAX_WEAPONS CSW_P90
 
 #define XO_WEAPON 4
 #define m_pPlayer 41
 #define m_iId 43
+#define m_iClip 51
 
 #define XO_PLAYER 5
+#define m_bResumeZoom 110
 #define m_iFOV 363
 #define OFFSET_SHIELD 510
 #define HAS_SHIELD  (1<<24)
@@ -96,11 +99,18 @@ new const Float:g_speedScoped[] = {
     230.0  // p90
 };
 
+new g_bResumeZoom[MAX_PLAYERS];
 
 
 public plugin_init()
 {
     register_plugin(PLUGIN, VERSION, AUTHOR);
+
+    new i = 0;
+    while (i < MAX_PLAYERS) {
+        g_bResumeZoom[i] = 0;
+        i++;
+    }
 
     new weaponid, weaponname[32];
     for (weaponid = 1; weaponid <= CSW_P90; weaponid++) {
@@ -114,21 +124,19 @@ public plugin_init()
 
     RegisterHam(Ham_Weapon_SecondaryAttack, "weapon_aug", "Item_ChangeZoom", 1);
     RegisterHam(Ham_Weapon_SecondaryAttack, "weapon_sg552", "Item_ChangeZoom", 1);
+
+    RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_awp", "AWP_AfterShot", 1);
+    RegisterHam(Ham_Item_PostFrame, "weapon_awp", "AWP_PostFramePre", 0);
+    RegisterHam(Ham_Item_PostFrame, "weapon_awp", "AWP_PostFramePost", 1);
 }
 
 public Item_GetMaxSpeed(ent) {
-    new owner = pev(ent, pev_owner);
-    new weapon = get_pdata_int(ent, m_iId, XO_WEAPON);
+    static owner, weapon;
+    owner = pev(ent, pev_owner);
+    weapon = get_pdata_int(ent, m_iId, XO_WEAPON);
     switch (pev(owner, pev_fov) != 90 && pev(owner, pev_fov) != 0) {
         case 1: {
-            switch (weapon) {
-                case CSW_AWP: {
-                    SetHamReturnFloat(181.0);
-                }
-                default: {
-                    SetHamReturnFloat(g_speedScoped[weapon]);
-                }
-            }
+            SetHamReturnFloat(g_speedScoped[weapon]);
         }
         default: {
             SetHamReturnFloat(g_speedDefault[weapon]);
@@ -138,14 +146,37 @@ public Item_GetMaxSpeed(ent) {
 }
 
 public Item_ChangeZoom(ent) {
-    new owner = pev(ent, pev_owner);
-    new weapon = get_pdata_int(ent, m_iId, XO_WEAPON);
+    static owner, weapon;
+    owner = pev(ent, pev_owner);
+    weapon = get_pdata_int(ent, m_iId, XO_WEAPON);
     switch (pev(owner, pev_fov) != 90) {
         case 1: {
             set_pev(owner, pev_maxspeed, g_speedScoped[weapon]);
         }
         default: {
             set_pev(owner, pev_maxspeed, g_speedDefault[weapon]);
+        }
+    }
+}
+
+public AWP_AfterShot(ent) {
+    static owner;
+    owner = pev(ent, pev_owner);
+    set_pev(owner, pev_maxspeed, g_speedDefault[CSW_AWP]);
+}
+
+public AWP_PostFramePre(ent) {
+    static owner;
+    owner = pev(ent, pev_owner);
+    g_bResumeZoom[owner] = get_pdata_int(owner, m_bResumeZoom, 5);
+}
+
+public AWP_PostFramePost(ent) {
+    static owner;
+    owner = pev(ent, pev_owner);
+    switch (g_bResumeZoom[owner] && !get_pdata_int(owner, m_bResumeZoom, 5) && get_pdata_int(ent, m_iClip, 4) > 0) {
+        case 1: {
+            set_pev(owner, pev_maxspeed, g_speedScoped[CSW_AWP]);
         }
     }
 }

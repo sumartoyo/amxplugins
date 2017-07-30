@@ -146,6 +146,40 @@ new const Float:g_punchangle1[][] = {
         -0.481452, -0.583160, -0.705857, -0.548222, -0.130325, 0.098939, -0.004534, -0.063867, -0.410388, -0.733785, -0.678482, -0.336089, 0.202963, 0.452909, 0.784609, 1.215684, 1.450961, 1.774760, 1.662900, 1.332376, 1.453853 }
 }
 
+new const Float:g_punch0[] = {
+    0.0, // none
+    0.0, // p228 - p250
+    0.0, // shield
+    0.0, // scout
+    0.0, // hegrenade
+    0.0, // xm1014
+    0.0, // c4
+    -0.3, // mac10
+    -0.625, // aug
+    0.0, // smokegrenade
+    0.0, // elite
+    0.0, // fiveseven
+    -0.275, // ump45
+    0.0, // sg550
+    -0.65, // galil
+    -0.625, // famas
+    0.0, // usp - usp-s
+    0.0, // glock18
+    0.0, // awp
+    -0.25, // mp5navy - mp7
+    0.0, // m249
+    0.0, // m3
+    -0.65, // m4a1 - m4a1-s
+    -0.3, // tmp - mp9
+    0.0, // g3sg1
+    0.0, // flashbang
+    0.0, // deagle
+    -0.625, // sg552 - sg553
+    -0.825, // ak47
+    0.0, // knife
+    -0.3  // p90
+};
+
 
 
 new g_isContinue[MAX_PLAYERS];
@@ -164,7 +198,7 @@ public plugin_init()
         g_isContinue[owner] = 0;
         g_isHolding[owner] = 0;
         g_lastTime[owner] = 0.0;
-        copy2d(g_lastPunchangle[owner], Float:{ 0.0, 0.0, 0.0 });
+        copy2d(Float:{ 0.0, 0.0, 0.0 }, g_lastPunchangle[owner]);
         owner++;
     }
 
@@ -182,7 +216,7 @@ public plugin_init()
 
 
 
-copy2d(Float:dest[], const Float:src[])
+copy2d(const Float:src[], Float:dest[])
 {
     dest[0] = src[0];
     dest[1] = src[1];
@@ -235,7 +269,7 @@ public attack_pre(const ent)
                                     set_pdata_float(ent, m_flAccuracy, 0.2, 4);
                                 }
                                 case 0: {
-                                    set_pdata_float(ent, m_flAccuracy, 1.0, 4);
+                                    set_pdata_float(ent, m_flAccuracy, 1.25, 4);
                                 }
                             }
                         }
@@ -250,7 +284,7 @@ public attack_pre(const ent)
                             switch (a_nShots < nShots) {
                                 case 1: {
                                     set_pdata_int(ent, m_iShotsFired, a_nShots, 4);
-                                    g_lastPunchangle[owner][1] *= 0.5;
+                                    g_lastPunchangle[owner][1] *= 0.2;
                                 }
                             }
                         }
@@ -278,7 +312,7 @@ public attack_post(const ent)
                     nShots = get_pdata_int(ent, m_iShotsFired, 4);
 
                     static Float:lastPunchangle[3], Float:lastPunchangle0, Float:lastPunchangle1;
-                    copy2d(lastPunchangle, g_lastPunchangle[owner]);
+                    copy2d(g_lastPunchangle[owner], lastPunchangle);
                     switch (nShots > g_arrLen[weapon] - 1) {
                         case 1: {
                             lastPunchangle0 = lastPunchangle[0];
@@ -287,18 +321,18 @@ public attack_post(const ent)
                         default: {
                             lastPunchangle0 = lastPunchangle[0] += calc_delta(g_punchangle0[weapon], nShots, nShots - 1);
                             lastPunchangle1 = lastPunchangle[1] += calc_delta(g_punchangle1[weapon], nShots, nShots - 1);
+                            copy2d(lastPunchangle, g_lastPunchangle[owner]);
                         }
                     }
-                    copy2d(g_lastPunchangle[owner], lastPunchangle);
 
                     static Float:length, Float:grow, Float:factor;
                     length = floatsqroot((lastPunchangle0 * lastPunchangle0) + (lastPunchangle1 * lastPunchangle1));
-                    grow = floatmin(0.22, (nShots - 1) * 0.02);
-                    factor = (length + 0.18 + grow) / length;
+                    grow = floatmin(0.2, (nShots - 1) * 0.02);
+                    factor = (length + 0.4 + grow) / length;
 
                     static Float:punchangle[3];
-                    punchangle[0] = lastPunchangle0 * factor;
-                    punchangle[1] = lastPunchangle1 * factor;
+                    punchangle[0] = floatmin(g_punch0[weapon], lastPunchangle0 * factor);
+                    punchangle[1] = lastPunchangle1;
                     set_pev(owner, pev_punchangle, punchangle);
                 }
             }
@@ -315,37 +349,17 @@ public client_PostThink(owner) {
                         case 1: {
                             static Float:punchangle[3], Float:lastPunchangle[3];
                             pev(owner, pev_punchangle, punchangle);
-                            copy2d(lastPunchangle, g_lastPunchangle[owner]);
+                            copy2d(g_lastPunchangle[owner], lastPunchangle);
 
-                            static Float:punchangle0, Float:punchangle1;
-                            punchangle0 = punchangle[0];
-                            punchangle1 = punchangle[1];
-                            static Float:lastPunchangle0, Float:lastPunchangle1;
+                            static Float:lastPunchangle0;
                             lastPunchangle0 = lastPunchangle[0];
-                            lastPunchangle1 = lastPunchangle[1];
 
-                            switch (punchangle0 > lastPunchangle0) {
+                            switch (punchangle[0] > lastPunchangle0) {
                                 case 1: {
                                     punchangle[0] = lastPunchangle0;
                                 }
                             }
-
-                            switch (punchangle1 > 0.0) {
-                                case 1: {
-                                    switch (punchangle1 < lastPunchangle1) {
-                                        case 1: {
-                                            punchangle[1] = lastPunchangle1;
-                                        }
-                                    }
-                                }
-                                default: {
-                                    switch (punchangle1 > lastPunchangle1) {
-                                        case 1: {
-                                            punchangle[1] = lastPunchangle1;
-                                        }
-                                    }
-                                }
-                            }
+                            punchangle[1] = lastPunchangle[1];
 
                             set_pev(owner, pev_punchangle, punchangle);
                         }
