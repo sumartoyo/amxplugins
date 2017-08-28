@@ -29,8 +29,8 @@ public TakeDamage_Post(id, inflictor, attacker, Float:damage, bits)
 {
     switch (!is_user_bot(id) && get_pdata_float(id, m_flPainShock, 5) < 1.0) {
         case 1: {
-            g_velocity[id][0] = 0.0;
-            g_velocity[id][1] = 0.0;
+            g_velocity[id][0] = floatmin(83.25, g_velocity[id][0]);
+            g_velocity[id][1] = floatmin(83.25, g_velocity[id][1]);
             set_pev(id, pev_velocity, g_velocity[id]);
             set_pdata_float(id, m_flPainShock, 0.9, 5);
             entity_set_float(id, EV_FL_fuser2, 699.0);
