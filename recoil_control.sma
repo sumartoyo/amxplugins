@@ -146,6 +146,7 @@ new const Float:g_punchangle1[][] = {
         -0.481452, -0.583160, -0.705857, -0.548222, -0.130325, 0.098939, -0.004534, -0.063867, -0.410388, -0.733785, -0.678482, -0.336089, 0.202963, 0.452909, 0.784609, 1.215684, 1.450961, 1.774760, 1.662900, 1.332376, 1.453853 }
 }
 
+/*
 new const Float:g_punch0[] = {
     0.0, // none
     0.0, // p228 - p250
@@ -179,6 +180,7 @@ new const Float:g_punch0[] = {
     0.0, // knife
     -0.3  // p90
 };
+*/
 
 
 
@@ -186,6 +188,7 @@ new g_isContinue[MAX_PLAYERS];
 new g_isHolding[MAX_PLAYERS];
 new Float:g_lastTime[MAX_PLAYERS];
 new Float:g_lastPunchangle[MAX_PLAYERS][3];
+new Float:g_prevPunchangle[MAX_PLAYERS][3];
 
 
 
@@ -256,20 +259,22 @@ public attack_pre(const ent)
             arrLen = g_arrLen[weapon];
             switch (arrLen > 0) {
                 case 1: {
-                    static playerFlags, Float:velocity[3], Float:velocity0, Float:velocity1, Float:length;
+                    static playerFlags, Float:velocity[3], Float:length;
                     playerFlags = pev(owner, pev_flags);
                     pev(owner, pev_velocity, velocity);
-                    velocity0 = velocity[0];
-                    velocity1 = velocity[1];
-                    length = (velocity0 * velocity0) + (velocity1 * velocity1);
+                    length = (velocity[0] * velocity[0]) + (velocity[1] * velocity[1]);
                     switch ((playerFlags & FL_ONGROUND) && length <= 6930.5625) {
                         case 1: { // on ground AND not more than crouch speed
-                            switch (g_isHolding[owner] || get_gametime() - g_lastTime[owner] >= 0.25) {
+                            switch (get_gametime() - g_lastTime[owner] >= 0.25) {
                                 case 1: {
                                     set_pdata_float(ent, m_flAccuracy, 0.2, 4);
                                 }
                                 case 0: {
-                                    set_pdata_float(ent, m_flAccuracy, 1.25, 4);
+                                    switch (g_isHolding[owner]) {
+                                        case 0: {
+                                            set_pdata_float(ent, m_flAccuracy, 1.25, 4);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -284,7 +289,7 @@ public attack_pre(const ent)
                             switch (a_nShots < nShots) {
                                 case 1: {
                                     set_pdata_int(ent, m_iShotsFired, a_nShots, 4);
-                                    g_lastPunchangle[owner][1] *= 0.2;
+                                    //g_lastPunchangle[owner][1] *= 0.1;
                                 }
                             }
                         }
@@ -311,28 +316,28 @@ public attack_post(const ent)
                     weapon = get_pdata_int(ent, m_iId, 4);
                     nShots = get_pdata_int(ent, m_iShotsFired, 4);
 
-                    static Float:lastPunchangle[3], Float:lastPunchangle0, Float:lastPunchangle1;
+                    static Float:lastPunchangle[3];
                     copy2d(g_lastPunchangle[owner], lastPunchangle);
                     switch (nShots > g_arrLen[weapon] - 1) {
-                        case 1: {
-                            lastPunchangle0 = lastPunchangle[0];
-                            lastPunchangle1 = lastPunchangle[1];
-                        }
+                        case 1: {}
                         default: {
-                            lastPunchangle0 = lastPunchangle[0] += calc_delta(g_punchangle0[weapon], nShots, nShots - 1);
-                            lastPunchangle1 = lastPunchangle[1] += calc_delta(g_punchangle1[weapon], nShots, nShots - 1);
+                            lastPunchangle[0] += calc_delta(g_punchangle0[weapon], nShots, nShots - 1);
+                            lastPunchangle[1] += calc_delta(g_punchangle1[weapon], nShots, nShots - 1);
                             copy2d(lastPunchangle, g_lastPunchangle[owner]);
                         }
                     }
 
+                    /*
                     static Float:length, Float:grow, Float:factor;
-                    length = floatsqroot((lastPunchangle0 * lastPunchangle0) + (lastPunchangle1 * lastPunchangle1));
+                    length = floatsqroot((lastPunchangle[0] * lastPunchangle[0]) + (lastPunchangle[1] * lastPunchangle[1]));
                     grow = floatmin(0.2, (nShots - 1) * 0.02);
                     factor = (length + 0.4 + grow) / length;
+                    */
 
                     static Float:punchangle[3];
-                    punchangle[0] = floatmin(g_punch0[weapon], lastPunchangle0 * factor);
-                    punchangle[1] = lastPunchangle1;
+                    //punchangle[0] = floatmin(g_punch0[weapon], lastPunchangle[0] * factor);
+                    punchangle[0] = lastPunchangle[0] - 0.55;
+                    punchangle[1] = lastPunchangle[1];
                     set_pev(owner, pev_punchangle, punchangle);
                 }
             }
@@ -340,28 +345,40 @@ public attack_post(const ent)
     }
 }
 
+public client_PreThink(owner) {
+    switch (is_user_bot(owner)) {
+        case 0: {
+            pev(owner, pev_punchangle, g_prevPunchangle[owner]);
+        }
+    }
+}
+
 public client_PostThink(owner) {
     switch (is_user_bot(owner)) {
         case 0: {
+            static Float:punchangle[3], Float:prevPunchangle[3], Float:lastPunchangle[3];
+            pev(owner, pev_punchangle, punchangle);
+            copy2d(g_prevPunchangle[owner], prevPunchangle);
+            copy2d(g_lastPunchangle[owner], lastPunchangle);
+
+            if (prevPunchangle[0] <= lastPunchangle[0]) {
+                static Float:delta0;
+                delta0 = punchangle[0] - prevPunchangle[0];
+                delta0 *= 0.5;
+                punchangle[0] = delta0 + prevPunchangle[0];
+                punchangle[1] = prevPunchangle[1];
+            }
+
             switch (1 && pev(owner, pev_button) & IN_ATTACK) {
                 case 1: {
                     switch (g_isContinue[owner]) {
                         case 1: {
-                            static Float:punchangle[3], Float:lastPunchangle[3];
-                            pev(owner, pev_punchangle, punchangle);
-                            copy2d(g_lastPunchangle[owner], lastPunchangle);
-
-                            static Float:lastPunchangle0;
-                            lastPunchangle0 = lastPunchangle[0];
-
-                            switch (punchangle[0] > lastPunchangle0) {
+                            switch (punchangle[0] > lastPunchangle[0]) {
                                 case 1: {
-                                    punchangle[0] = lastPunchangle0;
+                                    punchangle[0] = lastPunchangle[0];
                                 }
                             }
                             punchangle[1] = lastPunchangle[1];
-
-                            set_pev(owner, pev_punchangle, punchangle);
                         }
                     }
                 }
@@ -370,6 +387,8 @@ public client_PostThink(owner) {
                     g_isHolding[owner] = 0;
                 }
             }
+
+            set_pev(owner, pev_punchangle, punchangle);
         }
     }
 }
