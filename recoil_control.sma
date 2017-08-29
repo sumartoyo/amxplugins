@@ -146,42 +146,6 @@ new const Float:g_punchangle1[][] = {
         -0.481452, -0.583160, -0.705857, -0.548222, -0.130325, 0.098939, -0.004534, -0.063867, -0.410388, -0.733785, -0.678482, -0.336089, 0.202963, 0.452909, 0.784609, 1.215684, 1.450961, 1.774760, 1.662900, 1.332376, 1.453853 }
 }
 
-/*
-new const Float:g_punch0[] = {
-    0.0, // none
-    0.0, // p228 - p250
-    0.0, // shield
-    0.0, // scout
-    0.0, // hegrenade
-    0.0, // xm1014
-    0.0, // c4
-    -0.3, // mac10
-    -0.625, // aug
-    0.0, // smokegrenade
-    0.0, // elite
-    0.0, // fiveseven
-    -0.275, // ump45
-    0.0, // sg550
-    -0.65, // galil
-    -0.625, // famas
-    0.0, // usp - usp-s
-    0.0, // glock18
-    0.0, // awp
-    -0.25, // mp5navy - mp7
-    0.0, // m249
-    0.0, // m3
-    -0.65, // m4a1 - m4a1-s
-    -0.3, // tmp - mp9
-    0.0, // g3sg1
-    0.0, // flashbang
-    0.0, // deagle
-    -0.625, // sg552 - sg553
-    -0.825, // ak47
-    0.0, // knife
-    -0.3  // p90
-};
-*/
-
 
 
 new g_isContinue[MAX_PLAYERS];
@@ -259,27 +223,21 @@ public attack_pre(const ent)
             arrLen = g_arrLen[weapon];
             switch (arrLen > 0) {
                 case 1: {
-                    static playerFlags, Float:velocity[3], Float:length;
+                    /* set accuracy */
+                    static playerFlags;
                     playerFlags = pev(owner, pev_flags);
-                    pev(owner, pev_velocity, velocity);
-                    length = (velocity[0] * velocity[0]) + (velocity[1] * velocity[1]);
-                    switch ((playerFlags & FL_ONGROUND) && length <= 6930.5625) {
-                        case 1: { // on ground AND not more than crouch speed
-                            switch (get_gametime() - g_lastTime[owner] >= 0.25) {
-                                case 1: {
-                                    set_pdata_float(ent, m_flAccuracy, 0.2, 4);
-                                }
-                                case 0: {
-                                    switch (g_isHolding[owner]) {
-                                        case 0: {
-                                            set_pdata_float(ent, m_flAccuracy, 1.25, 4);
-                                        }
-                                    }
-                                }
-                            }
+                    switch ((playerFlags & FL_ONGROUND) && (playerFlags & FL_DUCKING)) {
+                        case 1: {
+                            set_pdata_float(ent, m_flAccuracy, 0.2, 4);
+                        }
+                    }
+                    switch (!g_isHolding[owner] && get_gametime() - g_lastTime[owner] < 0.25) {
+                        case 1: {
+                            set_pdata_float(ent, m_flAccuracy, 1.25, 4);
                         }
                     }
 
+                    /* set shots fired */
                     pev(owner, pev_punchangle, g_lastPunchangle[owner]);
                     switch (g_isHolding[owner]) {
                         case 0: {
@@ -289,7 +247,6 @@ public attack_pre(const ent)
                             switch (a_nShots < nShots) {
                                 case 1: {
                                     set_pdata_int(ent, m_iShotsFired, a_nShots, 4);
-                                    //g_lastPunchangle[owner][1] *= 0.1;
                                 }
                             }
                         }
@@ -316,28 +273,23 @@ public attack_post(const ent)
                     weapon = get_pdata_int(ent, m_iId, 4);
                     nShots = get_pdata_int(ent, m_iShotsFired, 4);
 
+                    /* set recoil */
                     static Float:lastPunchangle[3];
                     copy2d(g_lastPunchangle[owner], lastPunchangle);
-                    switch (nShots > g_arrLen[weapon] - 1) {
-                        case 1: {}
-                        default: {
+                    switch (nShots <= g_arrLen[weapon] - 1) {
+                        case 1: {
                             lastPunchangle[0] += calc_delta(g_punchangle0[weapon], nShots, nShots - 1);
                             lastPunchangle[1] += calc_delta(g_punchangle1[weapon], nShots, nShots - 1);
                             copy2d(lastPunchangle, g_lastPunchangle[owner]);
                         }
                     }
 
-                    /*
-                    static Float:length, Float:grow, Float:factor;
+                    /* set view punch */
+                    static Float:length, Float:factor, Float:punchangle[3];
                     length = floatsqroot((lastPunchangle[0] * lastPunchangle[0]) + (lastPunchangle[1] * lastPunchangle[1]));
-                    grow = floatmin(0.2, (nShots - 1) * 0.02);
-                    factor = (length + 0.4 + grow) / length;
-                    */
-
-                    static Float:punchangle[3];
-                    //punchangle[0] = floatmin(g_punch0[weapon], lastPunchangle[0] * factor);
-                    punchangle[0] = lastPunchangle[0] - 0.55;
-                    punchangle[1] = lastPunchangle[1];
+                    factor = (length + 0.55) / length;
+                    punchangle[0] = lastPunchangle[0] * factor;
+                    punchangle[1] = lastPunchangle[1] * factor;
                     set_pev(owner, pev_punchangle, punchangle);
                 }
             }
@@ -361,24 +313,28 @@ public client_PostThink(owner) {
             copy2d(g_prevPunchangle[owner], prevPunchangle);
             copy2d(g_lastPunchangle[owner], lastPunchangle);
 
+            /* slowing down recoil reset if still higher than next recoil position */
             if (prevPunchangle[0] <= lastPunchangle[0]) {
-                static Float:delta0;
+                static Float:delta0, Float:delta1;
                 delta0 = punchangle[0] - prevPunchangle[0];
-                delta0 *= 0.5;
+                delta1 = punchangle[1] - prevPunchangle[1];
+                delta0 *= 0.45;
+                delta1 *= 0.45;
                 punchangle[0] = delta0 + prevPunchangle[0];
-                punchangle[1] = prevPunchangle[1];
+                punchangle[1] = delta1 + prevPunchangle[1];
             }
 
             switch (1 && pev(owner, pev_button) & IN_ATTACK) {
                 case 1: {
                     switch (g_isContinue[owner]) {
                         case 1: {
+                            /* when spraying, keep recoil higher or equal to next recoil position */
                             switch (punchangle[0] > lastPunchangle[0]) {
                                 case 1: {
                                     punchangle[0] = lastPunchangle[0];
+                                    punchangle[1] = lastPunchangle[1];
                                 }
                             }
-                            punchangle[1] = lastPunchangle[1];
                         }
                     }
                 }
